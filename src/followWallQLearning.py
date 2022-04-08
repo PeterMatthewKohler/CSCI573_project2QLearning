@@ -73,6 +73,7 @@ else:
 
 # List to hold Reward Data for Each Episode
 rewardData = []
+qConvergence = []
 
 # Determine Robot State every Laser Scan Callback
 def scanCallBack(sensor_message):
@@ -176,7 +177,7 @@ def updateQTable(prevState, reward, action, discountFactor, learningRate):
 
 
 def resetRobot():
-    print("\n Stuck. Resetting robot position...")
+    print("\n Resetting robot position...")
     # Reset at position (0,0,0) with orientation of (0,0,0,1)
     msg_state.pose.position.x = 0
     msg_state.pose.position.y = 0
@@ -246,7 +247,7 @@ def doGreedyAction(prevState, duration):
 # Main Function for Performing Training or Using Best Trained Policy
 def main():
     # Initialize ROS node
-    rospy.init_node("wallFollow", anonymous=True)
+    rospy.init_node("wallFollowQ", anonymous=True)
 
     # Initialization variables
     trainingDone = False                    # Logic Variable to determine when to exit loop
@@ -282,11 +283,14 @@ def main():
         # Define list of prior poses for use to determine if robot is trapped and needs to be reset
         # Row 0 is 3 previous X coordinates of robot, Row 1 is 3 previous Y coordinates of robot
         prevPose = np.zeros((2,3))
-        # If episode didn't immediately terminate and a reward was accrued, append accrued reward to rewardData list
+        # Data Collection for Deliverable 3
         if timestepsThisEpisode != 0:
             totalAccruedReward += float(episodeReward)/timestepsThisEpisode
             rewardData.append((episodeNumber, totalAccruedReward))
-            print("\n Appended Reward: ", (episodeNumber, totalAccruedReward) )
+            sum = 0
+            for key in Q_TABLE:
+                sum += Q_TABLE[key]["turn_left"] + Q_TABLE[key]["go_forward"] + Q_TABLE[key]["turn_right"]
+            qConvergence.append((episodeNumber, sum))
         # Reset accrued episode reward and timesteps elapsed
         episodeReward = 0
         timestepsThisEpisode = 0
@@ -296,9 +300,11 @@ def main():
             if q_Learning:
                 # Generate Random Number to determine action under Epsilon Greedy Policy 
                 r = random.uniform(0,1)
-                # Timestep and State Printing for Error catching
+                # Timestep, State Printing, and Epsilon for Error catching/Observation
                 print("\n Timestep = ", timestep, "Episode Number = ", episodeNumber)
                 print("\n Current State is: ", "Right = ", robot_state.Right, " RightFront = ", robot_state.RightFront, " Front = ", robot_state.Front, " Left = ", robot_state.Left)
+                print("\n Epsilon = ", epsilon)
+                print("\n -------------------")
                 # Update Prior State
                 prevState.Right = robot_state.Right
                 prevState.RightFront = robot_state.RightFront
@@ -325,13 +331,13 @@ def main():
                 # Update Longest Episode Counter
                 if timestepsThisEpisode > longestEpisode:
                     longestEpisode = timestepsThisEpisode
-                # Epsilon and Longest Episode Printing for Error catching
-                print("\n Epsilon = ", epsilon)
-                print("\n Longest Episode (seconds) = ", longestEpisode*0.5)
+ 
+
                 # Determine if robot is trapped, if so terminate the episode
                 if (max(prevPose[0]) - min(prevPose[0])) < 0.05 and (max(prevPose[1]) - min(prevPose[1])) < 0.05 or pose_z > 0.05:
+                    print("Stuck!")
                     terminate = True
-                # Declare training done after 30000 timesteps total or 10000 timesteps in a single episode
+                # Declare training done after 20000 timesteps total or 10000 timesteps in a single episode
                 elif timestep > 20000 or timestepsThisEpisode > 10000: 
                     trainingDone = True
                     # Write Q_Learning policy to storage file
@@ -341,7 +347,9 @@ def main():
                     f = open("/home/hcr-student/Stingray-Simulation/catkin_ws/src/project2qlearning/src/reward_storage.py", "w")
                     f.write("Reward Data from Training = " + str(rewardData))
                     f.close()
-                    print("Q_Learning Complete, Q Table and reward data saved.")
+                    f = open("/home/hcr-student/Stingray-Simulation/catkin_ws/src/project2qlearning/src/qConvergence_storage.py", "w")
+                    f.write("qConvergence = " + str(qConvergence))
+                    print("\n Q_Learning Complete, Q Table, Q Table Convergence data, and reward data saved.")
                 
                 # Update number of timesteps by one
                 timestep += 1
