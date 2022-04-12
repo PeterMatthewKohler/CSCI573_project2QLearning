@@ -303,8 +303,7 @@ def main():
                 # Timestep, State Printing, and Epsilon for Error catching/Observation
                 print("\n Timestep = ", timestep, "Episode Number = ", episodeNumber)
                 print("\n Current State is: ", "Right = ", robot_state.Right, " RightFront = ", robot_state.RightFront, " Front = ", robot_state.Front, " Left = ", robot_state.Left)
-                print("\n Epsilon = ", epsilon)
-                print("\n -------------------")
+
                 # Update Prior State
                 prevState.Right = robot_state.Right
                 prevState.RightFront = robot_state.RightFront
@@ -315,6 +314,8 @@ def main():
                 prevPose[1][timestep % numTrappedStates] = pose_y
                 # Update Epsilon
                 epsilon = epsilon_0 * (d ** episodeNumber)
+                print("\n Epsilon = ", epsilon)
+                print("\n -------------------")
                 # Determine action to take
                 if r > epsilon: # Take Greedy Action
                     action = doGreedyAction(prevState, timestepDuration)
@@ -338,7 +339,7 @@ def main():
                     print("Stuck!")
                     terminate = True
                 # Declare training done after 20000 timesteps total or 10000 timesteps in a single episode
-                elif timestep > 20000 or timestepsThisEpisode > 10000: 
+                elif timestep > 30000 or timestepsThisEpisode > 10000: 
                     trainingDone = True
                     # Write Q_Learning policy to storage file
                     f = open("/home/hcr-student/Stingray-Simulation/catkin_ws/src/project2qlearning/src/qtable_storage.py", "w")
